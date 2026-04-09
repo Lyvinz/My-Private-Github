@@ -1,0 +1,162 @@
+trigger:
+- none
+
+variables:
+- group: fatca-scm-mcif-service-shared
+- group: fatca-scm-mcif-service-dev
+
+- name: fatca-scm-mcif-service.ref
+  value: $[ resources.repositories['fatca-scm-mcif-service'].ref ]
+
+- name: image-tag
+  value: $[ replace(variables['fatca-scm-mcif-service.ref'], 'refs/tags/', '') ]
+
+- name: is-tag
+  value: $[ contains(variables['Build.SourceBranch'], 'tags') ]
+
+- name: tag-filter
+  value: $[ contains(variables['fatca-scm-mcif-service.ref'], 'refs/tags/') ]
+
+resources:
+  repositories:
+  - repository: fatca-scm-mcif-service
+    type: git
+    name: fatca-scm-mcif-service
+    trigger:
+      branches:
+        include:
+        - main
+      tags:
+        include:
+        - deploy-*.*.*
+
+pool:
+  name: fatca-scm-linux
+
+parameters:
+- name: envs
+  type: object
+  default:
+  - DEV
+
+stages:
+- stage: Build
+  displayName: Build Service Package
+  jobs:
+  - job: PackageAndPublishArtifacts
+    displayName: Package and Publish Artifacts
+    steps:
+    - checkout: self
+    - checkout: fatca-scm-mcif-service
+
+    - task: CmdLine@2
+      displayName: 'Copy Dockerfile'
+      inputs:
+        script: |
+          cp $(System.DefaultWorkingDirectory)/fatca-scm-iac/docker/Dockerfile.mcif-service $(System.DefaultWorkingDirectory)/fatca-scm-mcif-service/
+          ls -al $(System.DefaultWorkingDirectory)/fatca-scm-mcif-service/
+
+    - task: CmdLine@2
+      displayName: 'Display variables'
+      inputs:
+        script: |
+          echo SourceBranch: $(Build.SourceBranch)
+          echo SourceBranchName: $(Build.SourceBranchName)
+          echo is-tag: $(is-tag)
+          echo tag-filter: $(tag-filter)
+          echo ref: $(fatca-scm-mcif-service.ref)
+          echo image-tag: $(image-tag)
+          echo ACR_SERVICE_CONNECTION: $(ACR_SERVICE_CONNECTION)
+          echo REPO: $(REPO)
+
+    - task: CmdLine@2
+      displayName: 'Set tag for branch builds'
+      condition: and(eq(variables['is-tag'], 'false'), eq(variables['tag-filter'], 'false'))
+      inputs:
+        script: |
+          echo "##vso[task.setvariable variable=image-tag]$(Build.BuildId)"
+          echo image-tag now set to $(Build.BuildId)
+
+    - task: CmdLine@2
+      displayName: 'Create git-tag file'
+      inputs:
+        script: |
+          echo $(image-tag) > $(System.DefaultWorkingDirectory)/git-tag
+          cat $(System.DefaultWorkingDirectory)/git-tag
+
+    - task: Docker@2
+      displayName: 'Docker Login'
+      inputs:
+        command: login
+        containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+
+    - task: Docker@2
+      displayName: 'Build and Push Image'
+      inputs:
+        containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+        repository: '$(REPO)'
+        command: 'buildAndPush'
+        Dockerfile: '$(System.DefaultWorkingDirectory)/fatca-scm-mcif-service/Dockerfile.mcif-service'
+        tags: |
+          $(image-tag)
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish docker-compose'
+      inputs:
+        PathToPublish: '$(System.DefaultWorkingDirectory)/fatca-scm-iac/docker/docker-compose.yml'
+        ArtifactName: 'docker-compose.yml'
+        publishLocation: 'Container'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish git-tag'
+      inputs:
+        PathToPublish: '$(System.DefaultWorkingDirectory)/git-tag'
+        ArtifactName: 'git-tag'
+        publishLocation: 'Container'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish scripts'
+      inputs:
+        PathToPublish: '$(System.DefaultWorkingDirectory)/fatca-scm-iac/scripts'
+        ArtifactName: 'scripts'
+        publishLocation: 'Container'
+
+- ${{ each env in parameters.envs }}:
+  - stage: Release${{ env }}
+    displayName: Release ${{ env }}
+    dependsOn: Build
+    jobs:
+    - deployment: Deploy${{ env }}
+      displayName: Deploy ${{ env }}
+      environment: mcif-service-${{ env }}
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: current
+              artifact: docker-compose.yml
+
+            - download: current
+              artifact: git-tag
+
+            - download: current
+              artifact: scripts
+
+            - task: Docker@2
+              displayName: 'Docker Login'
+              inputs:
+                containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+                command: login
+
+            - script: |
+                echo "Workspace: $(Pipeline.Workspace)"
+                ls -R $(Pipeline.Workspace)
+              displayName: 'Debug workspace'
+
+            - task: Bash@3
+              displayName: 'Run docker swarm deploy'
+              inputs:
+                targetType: filePath
+                filePath: '$(Pipeline.Workspace)/scripts/docker-swarm.sh'
+              env:
+                CMT_CLIENT_SECRET: $(CMT_CLIENT_SECRET)
