@@ -1,0 +1,97 @@
+trigger:
+- none
+
+variables:
+- group: cif-maintenance-tool-shared
+- template: ../templates/cif-maintenance-var-template.yml
+
+resources:
+  repositories:
+  - repository: cif-maintenance-tool
+    type: git
+    name: cif-maintenance-tool
+    trigger:
+      branches:
+        include:
+        - main
+      tags:
+        include:
+        - deploy-*.*.*
+
+stages:
+- template: ../templates/cif-maintenance-tool-frontend-template.yml
+
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+stages:
+- stage: BuildDEV
+  displayName: Build DEV
+  trigger: manual
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      name: pnpm-node18
+    steps:
+    - checkout: cif-maintenance-tool
+
+    - task: npmAuthenticate@0
+      displayName: 'Authenticate npm'
+      inputs:
+        workingFile: '$(System.DefaultWorkingDirectory)/.npmrc'
+
+    - task: CmdLine@2
+      displayName: 'Run pnpm install'
+      inputs:
+        script: 'unset NODE_ENV && pnpm i'
+
+    - task: CmdLine@2
+      displayName: 'PNPM Build'
+      inputs:
+        script: |
+          npm run builddev
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build'
+      inputs:
+        PathToPublish: '$(System.DefaultWorkingDirectory)/dist'
+        ArtifactName: 'cmt/dev'
+        publishLocation: 'Container'
+
+- stage: ReleaseDEV
+  displayName: Release DEV
+  dependsOn: BuildDEV
+  trigger: manual
+  jobs:
+  - deployment: DEV
+    displayName: Deploy DEV
+    pool:
+      name: fatca-scm-linux
+    environment: cmt-frontend-DEV
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            displayName: 'Download Artifact'
+            artifact: 'cmt/dev'
+
+          - script: |
+              echo "Beginning file transfer as $(whoami)"
+              chmod -R 644 $(Pipeline.Workspace)/cmt/dev/*
+              chmod 755 $(Pipeline.Workspace)/cmt/dev/assets
+              chmod -R 644 $(Pipeline.Workspace)/cmt/dev/assets/*
+              scp -rp $(Pipeline.Workspace)/cmt/dev/* app_scmcmt@zcae013006.int100.cibcfcib.com:/home/cmt.dev/html
+            displayName: 'Copy to zcae013006'
+            continueOnError: true
+
+          - script: |
+              echo "Beginning file transfer as $(whoami)"
+              chmod -R 644 $(Pipeline.Workspace)/cmt/dev/*
+              chmod 755 $(Pipeline.Workspace)/cmt/dev/assets
+              chmod -R 644 $(Pipeline.Workspace)/cmt/dev/assets/*
+              scp -rp $(Pipeline.Workspace)/cmt/dev/* app_scmcmt@zcae013007.int100.cibcfcib.com:/home/cmt.dev/html
+            displayName: 'Copy to zcae013007'
+            continueOnError: true
+
+
+            git add cif-tool/cif-maintenance-tool-unified.yml templates/cif-maintenance-var-template.yml templates/cif-maintenance-tool-frontend-template.yml
