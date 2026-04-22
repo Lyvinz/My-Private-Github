@@ -1,0 +1,93 @@
+parameters:
+  - name: startDateTime
+    type: string
+    default: ''
+
+  - name: endDateTime
+    type: string
+    default: ''
+
+  - name: xref
+    type: string
+    default: ''
+
+  - name: stage
+    type: string
+    default: ''
+
+stages:
+  - stage: SearchTransactions
+    displayName: Search Transactions
+    jobs:
+      - job: RunMqFind
+        displayName: Run mqfind and publish result
+
+        # Keep this only if your template does NOT already set the pool
+        pool:
+          name: your-self-hosted-agent-pool
+
+        steps:
+          - checkout: none
+
+          - script: |
+              set -e
+
+              START="${{ parameters.startDateTime }}"
+              END="${{ parameters.endDateTime }}"
+              XREF="${{ parameters.xref }}"
+              STAGE="${{ parameters.stage }}"
+
+              echo "Validating inputs..."
+
+              if [ -z "$START" ]; then
+                echo "ERROR: startDateTime is required"
+                exit 1
+              fi
+
+              if [ -z "$END" ]; then
+                echo "ERROR: endDateTime is required"
+                exit 1
+              fi
+
+              if [ -z "$XREF" ]; then
+                echo "ERROR: xref is required"
+                exit 1
+              fi
+
+              if ! echo "$START" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
+                echo "ERROR: startDateTime must be in format YYYY-mm-dd-HH.MM.SS"
+                exit 1
+              fi
+
+              if ! echo "$END" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
+                echo "ERROR: endDateTime must be in format YYYY-mm-dd-HH.MM.SS"
+                exit 1
+              fi
+
+              OUTPUT_DIR="$(Build.ArtifactStagingDirectory)"
+              SAFE_XREF=$(echo "$XREF" | tr -cd '[:alnum:]_-')
+              OUTPUT_FILE="$OUTPUT_DIR/transactions_${SAFE_XREF}.xml"
+
+              mkdir -p "$OUTPUT_DIR"
+
+              echo "Running mqfind..."
+
+              if [ -n "$STAGE" ]; then
+                mqfind -a "$STAGE" "$START" "$END" "$XREF" > "$OUTPUT_FILE"
+              else
+                mqfind "$START" "$END" "$XREF" > "$OUTPUT_FILE"
+              fi
+
+              if [ ! -s "$OUTPUT_FILE" ]; then
+                echo "<result>No transactions found</result>" > "$OUTPUT_FILE"
+              fi
+
+              echo "Output written to $OUTPUT_FILE"
+            displayName: Execute mqfind
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish transaction result
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'transaction-results'
+              publishLocation: 'pipeline'
