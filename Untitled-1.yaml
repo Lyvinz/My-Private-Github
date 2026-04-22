@@ -1,93 +1,140 @@
+trigger: none
+
+resources:
+  repositories:
+    - repository: mq
+      type: git
+      name: 'MQ Brokar DevOps/mq'
+      ref: main
+
 parameters:
+  - name: environment
+    displayName: 'Environment'
+    type: string
+    values:
+      - DIT
+      - SIT
+    default: SIT
+
   - name: startDateTime
+    displayName: 'Start Date Time (YYYY-mm-dd-HH.MM.SS)'
     type: string
     default: ''
 
   - name: endDateTime
+    displayName: 'End Date Time (YYYY-mm-dd-HH.MM.SS)'
     type: string
     default: ''
 
   - name: xref
+    displayName: 'X-Ref'
     type: string
     default: ''
 
   - name: stage
+    displayName: 'Stage (Optional)'
     type: string
     default: ''
 
+variables:
+  mq_run_user: 'mqm'
+
 stages:
   - stage: SearchTransactions
-    displayName: Search Transactions
+    displayName: 'Search Transactions'
     jobs:
-      - job: RunMqFind
-        displayName: Run mqfind and publish result
-
-        # Keep this only if your template does NOT already set the pool
+      - job: SearchTransactions_${{ parameters.environment }}
+        displayName: '${{ parameters.environment }} Search Transactions'
         pool:
-          name: your-self-hosted-agent-pool
+          name: 'ice-jdk8'
+        variables:
+          - group: mqsc_${{ lower(parameters.environment) }}
+          - name: ssh_service_connection
+            value: 'MQ ${{ parameters.environment }} (SSH)'
+          - name: remote_output_dir
+            value: '/tmp/search-transactions'
+          - name: remote_output_file
+            value: '/tmp/search-transactions/transactions_${{ parameters.xref }}.xml'
 
         steps:
-          - checkout: none
+          - checkout: self
+          - checkout: mq
 
-          - script: |
-              set -e
-
-              START="${{ parameters.startDateTime }}"
-              END="${{ parameters.endDateTime }}"
-              XREF="${{ parameters.xref }}"
-              STAGE="${{ parameters.stage }}"
-
-              echo "Validating inputs..."
-
-              if [ -z "$START" ]; then
-                echo "ERROR: startDateTime is required"
-                exit 1
-              fi
-
-              if [ -z "$END" ]; then
-                echo "ERROR: endDateTime is required"
-                exit 1
-              fi
-
-              if [ -z "$XREF" ]; then
-                echo "ERROR: xref is required"
-                exit 1
-              fi
-
-              if ! echo "$START" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
-                echo "ERROR: startDateTime must be in format YYYY-mm-dd-HH.MM.SS"
-                exit 1
-              fi
-
-              if ! echo "$END" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
-                echo "ERROR: endDateTime must be in format YYYY-mm-dd-HH.MM.SS"
-                exit 1
-              fi
-
-              OUTPUT_DIR="$(Build.ArtifactStagingDirectory)"
-              SAFE_XREF=$(echo "$XREF" | tr -cd '[:alnum:]_-')
-              OUTPUT_FILE="$OUTPUT_DIR/transactions_${SAFE_XREF}.xml"
-
-              mkdir -p "$OUTPUT_DIR"
-
-              echo "Running mqfind..."
-
-              if [ -n "$STAGE" ]; then
-                mqfind -a "$STAGE" "$START" "$END" "$XREF" > "$OUTPUT_FILE"
-              else
-                mqfind "$START" "$END" "$XREF" > "$OUTPUT_FILE"
-              fi
-
-              if [ ! -s "$OUTPUT_FILE" ]; then
-                echo "<result>No transactions found</result>" > "$OUTPUT_FILE"
-              fi
-
-              echo "Output written to $OUTPUT_FILE"
-            displayName: Execute mqfind
-
-          - task: PublishPipelineArtifact@1
-            displayName: Publish transaction result
+          - task: Bash@3
+            displayName: 'Validate inputs'
             inputs:
-              targetPath: '$(Build.ArtifactStagingDirectory)'
-              artifact: 'transaction-results'
-              publishLocation: 'pipeline'
+              targetType: 'inline'
+              script: |
+                set -e
+
+                START="${{ parameters.startDateTime }}"
+                END="${{ parameters.endDateTime }}"
+                XREF="${{ parameters.xref }}"
+
+                if [ -z "$START" ]; then
+                  echo "ERROR: startDateTime is required"
+                  exit 1
+                fi
+
+                if [ -z "$END" ]; then
+                  echo "ERROR: endDateTime is required"
+                  exit 1
+                fi
+
+                if [ -z "$XREF" ]; then
+                  echo "ERROR: xref is required"
+                  exit 1
+                fi
+
+                if ! echo "$START" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
+                  echo "ERROR: startDateTime must be in format YYYY-mm-dd-HH.MM.SS"
+                  exit 1
+                fi
+
+                if ! echo "$END" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
+                  echo "ERROR: endDateTime must be in format YYYY-mm-dd-HH.MM.SS"
+                  exit 1
+                fi
+
+          - task: SSH@0
+            displayName: 'Run mqfind remotely and save file'
+            inputs:
+              sshEndpoint: ${{ variables.ssh_service_connection }}
+              runOptions: 'inline'
+              inline: |
+                set -e
+
+                sudo mkdir -p "$(remote_output_dir)"
+                sudo chown $(mq_run_user):$(mq_run_user) "$(remote_output_dir)"
+
+                if [ -n "${{ parameters.stage }}" ]; then
+                  sudo -u $(mq_run_user) bash -c 'mqfind -a "${{ parameters.stage }}" "${{ parameters.startDateTime }}" "${{ parameters.endDateTime }}" "${{ parameters.xref }}" > "$(remote_output_file)"'
+                else
+                  sudo -u $(mq_run_user) bash -c 'mqfind "${{ parameters.startDateTime }}" "${{ parameters.endDateTime }}" "${{ parameters.xref }}" > "$(remote_output_file)"'
+                fi
+
+                if [ ! -s "$(remote_output_file)" ]; then
+                  echo "<result>No transactions found</result>" | sudo tee "$(remote_output_file)" > /dev/null
+                fi
+
+                sudo chown $(mq_run_user):$(mq_run_user) "$(remote_output_file)"
+                echo "Remote output written to $(remote_output_file)"
+
+          - task: SSH@0
+            displayName: 'Print transaction output'
+            inputs:
+              sshEndpoint: ${{ variables.ssh_service_connection }}
+              runOptions: 'inline'
+              inline: |
+                set -e
+                sudo cat "$(remote_output_file)"
+
+          - task: SSH@0
+            displayName: 'Cleanup remote temp file'
+            condition: always()
+            inputs:
+              sshEndpoint: ${{ variables.ssh_service_connection }}
+              runOptions: 'inline'
+              inline: |
+                set -e
+                sudo rm -f "$(remote_output_file)"
