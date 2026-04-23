@@ -1,0 +1,35 @@
+ - task: SSH@0
+            displayName: 'Test SSH connectivity'
+            inputs:
+              sshEndpoint: 'MQ ${{ parameters.environment }} (SSH)'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "Connected successfully"
+                echo "Login user:"
+                whoami
+                echo "Host:"
+                hostname
+                echo "Working directory:"
+                pwd
+
+          - task: SSH@0
+            displayName: 'Test mqm access'
+            inputs:
+              sshEndpoint: 'MQ ${{ parameters.environment }} (SSH)'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "Current user:"
+                whoami
+                echo "MQ run user:"
+                sudo -u mqm whoami
+
+          - task: SSH@0
+            displayName: 'Test mqfind availability'
+            inputs:
+              sshEndpoint: 'MQ ${{ parameters.environment }} (SSH)'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                sudo -u mqm bash -c 'which mqfind || command -v mqfind || echo "mqfind not found"'
