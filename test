@@ -1,0 +1,15 @@
+ - task: SSH@0
+            displayName: 'Verify SSH target'
+            inputs:
+              # FIX: Use the service connection name directly.
+              # Do NOT use $(ssh_service_connection), because SSH@0 was treating it as literal text.
+              sshEndpoint: 'MQ ${{ parameters.environment }} (SSH)'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "Connected to:"
+                hostname
+                echo "Login user:"
+                whoami
+                echo "PATH:"
+                echo $PATH
