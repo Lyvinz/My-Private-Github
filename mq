@@ -1,0 +1,182 @@
+parameters:
+  - name: environment
+    type: object
+    default:
+      - DIT
+      - SIT
+
+  - name: startDateTime
+    type: string
+    default: ''
+
+  - name: endDateTime
+    type: string
+    default: ''
+
+  - name: xref
+    type: string
+    default: ''
+
+  - name: stage
+    type: string
+    default: ''
+
+stages:
+  - stage: PreBuildPrep
+    displayName: 'Pre-Build Preparation'
+    jobs:
+      - job: SetBuildNumberAndTags
+        displayName: 'Set Build Number and Tags'
+        pool:
+          name: 'ice-jdk8'
+        steps:
+          - checkout: none
+          - script: |
+              echo "##vso[build.updatebuildnumber]mqfind-${{ parameters.xref }}-$(Build.BuildNumber)"
+              echo "##vso[build.addbuildtag]mqfind"
+              echo "##vso[build.addbuildtag]${{ parameters.xref }}"
+            displayName: 'Set build number and tags'
+
+  - ${{ each env in parameters.environment }}:
+      - stage: Search_${{ env }}
+        displayName: '${{ env }} Search Transactions'
+        dependsOn: PreBuildPrep
+        trigger: manual
+
+        jobs:
+          - job: SearchTransactions_${{ env }}
+            displayName: '${{ env }} Search Transactions'
+            pool:
+              name: 'ice-jdk8'
+
+            variables:
+              - group: broker_${{ lower(env) }}
+              - group: mqsc_${{ lower(env) }}
+
+              - name: mq_run_user
+                value: 'mqm'
+
+              - name: remote_output_dir
+                value: '/tmp/search-transactions'
+
+              - name: remote_output_file
+                value: '/tmp/search-transactions/transactions_${{ parameters.xref }}.xml'
+
+            steps:
+              - checkout: none
+
+              - task: Bash@3
+                displayName: 'Validate inputs'
+                inputs:
+                  targetType: 'inline'
+                  script: |
+                    set -e
+
+                    START="${{ parameters.startDateTime }}"
+                    END="${{ parameters.endDateTime }}"
+                    XREF="${{ parameters.xref }}"
+                    STAGE="${{ parameters.stage }}"
+
+                    if [ -z "$START" ]; then
+                      echo "ERROR: startDateTime is required"
+                      exit 1
+                    fi
+
+                    if [ -z "$END" ]; then
+                      echo "ERROR: endDateTime is required"
+                      exit 1
+                    fi
+
+                    if [ -z "$XREF" ]; then
+                      echo "ERROR: xref is required"
+                      exit 1
+                    fi
+
+                    if [ -z "$STAGE" ]; then
+                      echo "ERROR: stage is required for mqfind -a"
+                      exit 1
+                    fi
+
+                    echo "Validation passed."
+
+              - task: SSH@0
+                displayName: 'Verify SSH target'
+                inputs:
+                  sshEndpoint: 'MQ ${{ env }} (SSH)'
+                  runOptions: 'inline'
+                  inline: |
+                    set -e
+                    echo "Connected to host:"
+                    hostname
+                    echo "Login user:"
+                    whoami
+
+              - task: SSH@0
+                displayName: 'Run mqfind search'
+                inputs:
+                  sshEndpoint: 'MQ ${{ env }} (SSH)'
+                  runOptions: 'inline'
+                  inline: |
+                    set -e
+
+                    echo "Preparing output directory"
+                    sudo mkdir -p "$(remote_output_dir)"
+                    sudo chown $(mq_run_user):$(mq_run_user) "$(remote_output_dir)"
+
+                    echo "Running mqfind as $(mq_run_user) with login shell/profile"
+
+                    sudo su - $(mq_run_user) -c '
+                      set -e
+
+                      shopt -s expand_aliases 2>/dev/null || true
+
+                      [ -f ~/.bashrc ] && source ~/.bashrc
+                      [ -f ~/.bash_profile ] && source ~/.bash_profile
+                      [ -f ~/.profile ] && source ~/.profile
+
+                      echo "Running as:"
+                      whoami
+
+                      echo "Host:"
+                      hostname
+
+                      echo "PATH:"
+                      echo $PATH
+
+                      echo "Checking mqfind alias/command:"
+                      type mqfind || {
+                        echo "ERROR: mqfind alias/command not found after loading mqm profile"
+                        exit 1
+                      }
+
+                      mqfind -a "${{ parameters.stage }}" \
+                        "${{ parameters.startDateTime }}" \
+                        "${{ parameters.endDateTime }}" \
+                        "${{ parameters.xref }}" \
+                        > "$(remote_output_file)"
+                    '
+
+                    if [ ! -s "$(remote_output_file)" ]; then
+                      echo "<result>No transactions found</result>" | sudo tee "$(remote_output_file)" > /dev/null
+                    fi
+
+                    sudo chown $(mq_run_user):$(mq_run_user) "$(remote_output_file)"
+                    echo "Output written to $(remote_output_file)"
+
+              - task: SSH@0
+                displayName: 'Print transaction output'
+                inputs:
+                  sshEndpoint: 'MQ ${{ env }} (SSH)'
+                  runOptions: 'inline'
+                  inline: |
+                    set -e
+                    sudo cat "$(remote_output_file)"
+
+              - task: SSH@0
+                displayName: 'Cleanup remote file'
+                condition: always()
+                inputs:
+                  sshEndpoint: 'MQ ${{ env }} (SSH)'
+                  runOptions: 'inline'
+                  inline: |
+                    sudo rm -f "$(remote_output_file)"
