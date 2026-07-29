@@ -1,0 +1,214 @@
+Objective
+
+Investigate approaches for maintaining an accurate Snyk Production lifecycle across all application teams while reducing manual effort and improving reporting consistency.
+
+This spike evaluates several approaches to ensure that only the current production codebase is represented as the Snyk Production project.
+
+Background
+
+Currently, Snyk Production lifecycle assignments are inconsistent across applications.
+
+Some application teams assign the Production lifecycle directly to release branches, resulting in multiple production targets over time.
+
+Example:
+
+release/2026.06  → Production
+release/2026.07  → Production
+release/2026.08  → Production
+
+This creates several operational challenges:
+
+Multiple projects representing Production
+Inconsistent monthly reporting
+Difficulty determining which project represents the live production deployment
+Manual lifecycle management
+Problem Statement
+
+The current process lacks a standardized approach for identifying the production branch monitored by Snyk.
+
+Different applications use different branching strategies, resulting in inconsistent Production lifecycle assignments.
+
+The objective of this spike is to determine the most scalable approach for standardizing Production monitoring across application teams.
+
+Requirements
+
+The proposed solution should:
+
+Maintain a single Production lifecycle target per application
+Continue scanning release branches before production deployment
+Support existing application branching strategies where possible
+Minimize manual lifecycle management
+Improve reporting consistency
+Be scalable across all application teams
+Current Workflow
+Developer
+      │
+      ▼
+release/*
+      │
+      ▼
+Run Snyk Scan
+      │
+      ▼
+Assign Production Lifecycle
+      │
+      ▼
+Multiple Production Targets Created
+Options Evaluated
+Option 1 – Standard Production Branch (Recommended)
+
+Each application maintains a standard production branch (typically master).
+
+Following a successful production deployment:
+
+release/*
+      │
+      ▼
+Production Deployment
+      │
+      ▼
+Merge/Promote deployed commit to master
+      │
+      ▼
+Run Snyk Monitor
+      │
+      ▼
+master = Production
+Advantages
+Simple implementation
+Minimal pipeline changes
+One Production target
+Consistent reporting
+Easy for Security teams to understand
+Considerations
+Teams must maintain the production branch consistently.
+The production branch should always represent the deployed production code.
+Option 2 – Dedicated Production Branch
+
+Each application maintains a dedicated branch such as:
+
+production
+
+After deployment:
+
+release/*
+      │
+      ▼
+Production Deployment
+      │
+      ▼
+Update production branch
+      │
+      ▼
+Run Snyk Monitor
+Advantages
+Independent of development branching strategy
+Works for applications that do not use master as production
+Disadvantages
+Additional branch maintenance
+Option 3 – Lifecycle Automation
+
+Continue scanning release branches.
+
+After deployment:
+
+Promote newest release target
+Remove Production lifecycle from previous release
+
+Example:
+
+release/2026.07
+        │
+Production Removed
+
+release/2026.08
+        │
+Production Assigned
+Advantages
+Maintains release history
+Automatic lifecycle management
+Disadvantages
+Requires Snyk API automation
+Higher maintenance
+Increased implementation complexity
+Option 4 – codeVersionOverride
+
+Continue scanning release branches while using a common production reference.
+
+Advantages
+No additional Git branches
+Minimal repository changes
+Disadvantages
+Additional Snyk configuration
+Less intuitive than a dedicated production branch
+Comparison
+Option	Complexity	Maintenance	Reporting	Recommendation
+Standard Production Branch	Low	Low	Excellent	⭐ Recommended
+Dedicated Production Branch	Medium	Medium	Excellent	Good Alternative
+Lifecycle Automation	High	High	Excellent	Future Enhancement
+codeVersionOverride	Medium	Medium	Good	Alternative
+Recommended Approach
+
+Adopt a standardized production branch for each application.
+
+Application teams should ensure that the production branch always represents the code currently deployed to Production.
+
+Release branches remain responsible for:
+
+SCA
+SAST
+Security validation
+
+The Production branch becomes the authoritative source for:
+
+Production lifecycle
+Production reporting
+Continuous monitoring
+Proposed Workflow
+Developer
+      │
+      ▼
+release/*
+      │
+      ▼
+Run SCA / SAST
+      │
+      ▼
+Security Review
+      │
+      ▼
+Production Deployment
+      │
+      ▼
+Update Production Branch
+      │
+      ▼
+Run Snyk Monitor
+      │
+      ▼
+Production Lifecycle
+Benefits
+Single Production target
+Consistent reporting
+Reduced manual lifecycle updates
+Easier governance
+Simpler onboarding for application teams
+Reusable process across repositories
+Risks
+Risk	Mitigation
+Production branch not updated	Integrate into deployment pipeline or release process
+Teams follow different branching strategies	Document an approved production branch for each application
+Existing Production targets remain	Perform a one-time cleanup during migration
+Future Enhancements
+
+Future improvements may include:
+
+Automatic production lifecycle updates after deployment
+Automated cleanup of legacy Production lifecycle assignments
+Standardized Azure DevOps templates for all application teams
+Centralized governance to validate Production lifecycle assignments
+Recommendation
+
+Following evaluation of the available approaches, the recommended solution is to standardize a single production branch per application and use that branch as the authoritative Production target within Snyk.
+
+Release branches should continue to be scanned for pre-production validation, while the production branch serves as the sole source for Production lifecycle assignment and reporting.
