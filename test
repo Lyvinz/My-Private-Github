@@ -1,1 +1,3 @@
 =IF(C2="Critical",G2+30,IF(C2="High",G2+60,IF(C2="Medium",G2+120,"")))
+
+=IF(H2="","CHECK",IF(TODAY()>H2,"BREACHED",IF(H2-TODAY()<=14,"AT RISK","WITHIN SLA")))
