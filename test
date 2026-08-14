@@ -1,5 +1,8 @@
-=IF(C2="Critical",G2+30,IF(C2="High",G2+60,IF(C2="Medium",G2+120,"")))
+=IF(H2="","",IF(M2<>"",IF(M2>H2,(M2-H2)&" days overdue when remediated","Remediated within SLA"),IF(TODAY()>H2,(TODAY()-H2)&" days overdue",IF(TODAY()<H2,(H2-TODAY())&" days remaining","Due today"))))\\
+
+=IF(D2="Critical",G2+30,IF(D2="High",G2+60,IF(D2="Medium",G2+120,"")))
+
 
 =IF(H2="","CHECK",IF(TODAY()>H2,"BREACHED",IF(H2-TODAY()<=14,"AT RISK","WITHIN SLA")))
 
-=IF(J2-I2>0,(J2-I2)&" days over SLA",IF(J2-I2<0,ABS(J2-I2)&" days before SLA","On SLA deadline"))
+=IF(I2-H2>0,(I2-H2)&" days over SLA",IF(I2-H2<0,ABS(I2-H2)&" days before SLA","On SLA deadline"))
