@@ -2,4 +2,4 @@
 
 =IF(H2="","CHECK",IF(TODAY()>H2,"BREACHED",IF(H2-TODAY()<=14,"AT RISK","WITHIN SLA")))
 
-=IF(I2-H2>0,(I2-H2)&" days over SLA",IF(I2-H2<0,ABS(I2-H2)&" days before SLA","On SLA deadline"))
+=IF(J2-I2>0,(J2-I2)&" days over SLA",IF(J2-I2<0,ABS(J2-I2)&" days before SLA","On SLA deadline"))
