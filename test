@@ -11,3 +11,5 @@
 
 
 =IF(I2="","",IF(TODAY()>I2,(TODAY()-I2)&" days overdue",IF(TODAY()<I2,(I2-TODAY())&" days remaining","Due today")))
+
+=IF(I2="","CHECK",IF(TODAY()>I2,"BREACHED",IF(I2-TODAY()<=14,"AT RISK","WITHIN SLA")))
