@@ -8,3 +8,6 @@
 =IF(I2-H2>0,(I2-H2)&" days over SLA",IF(I2-H2<0,ABS(I2-H2)&" days before SLA","On SLA deadline"))
 
 =IF(H2="","",IF(AND(M2<>"",ISNUMBER(M2)),IF(M2>H2,(M2-H2)&" days overdue when remediated","Remediated within SLA"),IF(TODAY()>H2,(TODAY()-H2)&" days overdue",IF(TODAY()<H2,(H2-TODAY())&" days remaining","Due today"))))
+
+
+=IF(I2="","",IF(TODAY()>I2,(TODAY()-I2)&" days overdue",IF(TODAY()<I2,(I2-TODAY())&" days remaining","Due today")))
