@@ -1,4 +1,4 @@
-=IF(H2="","",IF(M2<>"",IF(M2>H2,(M2-H2)&" days overdue when remediated","Remediated within SLA"),IF(TODAY()>H2,(TODAY()-H2)&" days overdue",IF(TODAY()<H2,(H2-TODAY())&" days remaining","Due today"))))\\
+=IF(H2="","",IF(M2<>"",IF(M2>H2,(M2-H2)&" days overdue when remediated","Remediated within SLA"),IF(TODAY()>H2,(TODAY()-H2)&" days overdue",IF(TODAY()<H2,(H2-TODAY())&" days remaining","Due today"))))
 
 =IF(D2="Critical",G2+30,IF(D2="High",G2+60,IF(D2="Medium",G2+120,"")))
 
