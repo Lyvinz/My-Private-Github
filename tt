@@ -56,3 +56,13 @@ Make the matching case-insensitive, ignore leading or trailing spaces, and ensur
 Use the current UTC time when determining whether records are older than 24 hours.
 
 Do not modify the original NSG data or the LogAnalytics worksheet.
+
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where _ResourceId has "z-nsg-api_mgmt_subnet-dev-cac-network"
+| summarize
+    Records = count(),
+    LastReported = max(TimeGenerated)
+    by Category, OperationName
+| order by Records desc
