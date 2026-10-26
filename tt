@@ -1,4 +1,3 @@
-
 AzureDiagnostics
 | where TimeGenerated > ago(90d)
 | where Category == "NetworkSecurityGroupRuleCounter"
@@ -10,3 +9,9 @@ AzureDiagnostics
     NSGs = dcount(Resource)
     by Subscription
 | order by Records desc
+
+
+
+Resources
+| where type =~ "microsoft.network/networksecuritygroups"
+| summarize TotalNSGs = count()
