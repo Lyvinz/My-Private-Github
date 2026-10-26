@@ -35,3 +35,24 @@ AzureDiagnostics
 
 
 =IF(COUNTIF(LogAnalytics!$A:$A,C2)>0,"Found in Logs","No Records Found")
+
+Choose Option 2, but use these three statuses:
+
+1. **Active Reporting** — The NSGId exists in the LogAnalytics worksheet and its LastReported [UTC] timestamp is within the last 24 hours.
+2. **Stale Reporting** — The NSGId exists in the LogAnalytics worksheet, but its LastReported [UTC] timestamp is older than 24 hours.
+3. **No Records Found** — The NSGId does not exist in the LogAnalytics worksheet.
+
+Match the NSGId from column C of my Resource Graph worksheet against column A of the LogAnalytics worksheet.
+
+The LogAnalytics worksheet contains:
+- Column A: NSGId
+- Column B: Records
+- Column C: LastReported [UTC]
+
+Create an Excel formula for the MonitoringStatus column that automatically checks these conditions for all 24 NSGs.
+
+Make the matching case-insensitive, ignore leading or trailing spaces, and ensure LastReported [UTC] is correctly interpreted as a UTC date/time.
+
+Use the current UTC time when determining whether records are older than 24 hours.
+
+Do not modify the original NSG data or the LogAnalytics worksheet.
