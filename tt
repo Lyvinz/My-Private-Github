@@ -84,3 +84,15 @@ AzureDiagnostics
     LastReported = max(TimeGenerated)
     by ResourceId
 | order by Records desc
+
+
+AzureDiagnostics
+| where TimeGenerated >= datetime(2026-08-01)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where _ResourceId contains "z-nsg-api_mgmt_subnet-dev-cac-network"
+| summarize
+    Records = count(),
+    FirstReported = min(TimeGenerated),
+    LastReported = max(TimeGenerated)
+    by _ResourceId
+
