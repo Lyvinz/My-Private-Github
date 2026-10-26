@@ -66,3 +66,12 @@ AzureDiagnostics
     LastReported = max(TimeGenerated)
     by Category, OperationName
 | order by Records desc
+
+
+AzureDiagnostics
+| where _ResourceId =~ "/subscriptions/3f90d372-6ae2-4c62-87bd-b7b5b8f6cf63/resourceGroups/z-rg-dataeng-dev-cac-network/providers/Microsoft.Network/networkSecurityGroups/z-nsg-api_mgmt_subnet-dev-cac-network"
+| summarize
+    TotalRecords = count(),
+    FirstReported = min(TimeGenerated),
+    LastReported = max(TimeGenerated)
+
