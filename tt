@@ -32,3 +32,6 @@ AzureDiagnostics
     LastReported = max(TimeGenerated)
     by NSGId = tolower(_ResourceId)
 | order by NSGId asc
+
+
+=IF(COUNTIF(LogAnalytics!$A:$A,C2)>0,"Found in Logs","No Records Found")
