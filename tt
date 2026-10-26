@@ -1,0 +1,12 @@
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where OperationName == "NetworkSecurityGroupCounters"
+| extend Subscription = extract(
+    @"/subscriptions/([^/]+)", 1, _ResourceId
+)
+| summarize Records = count(),
+    NSGs = dcount(Resource)
+    by Subscription
+| order by Records desc
