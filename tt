@@ -15,3 +15,20 @@ AzureDiagnostics
 Resources
 | where type =~ "microsoft.network/networksecuritygroups"
 | summarize TotalNSGs = count()
+
+
+Resources
+| where type =~ "microsoft.network/networksecuritygroups"
+| project NSG = name, ResourceGroup = resourceGroup, NSGId = id
+| order by NSG asc
+
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where OperationName == "NetworkSecurityGroupCounters"
+| summarize
+    Records = count(),
+    LastReported = max(TimeGenerated)
+    by NSGId = tolower(_ResourceId)
+| order by NSGId asc
