@@ -125,3 +125,15 @@ AzureDiagnostics
     by Category
 | order by Records desc
 
+AzureDiagnostics
+| where TimeGenerated >= datetime(2026-08-01)
+| where Category in (
+    "NetworkSecurityGroupEvent",
+    "NetworkSecurityGroupRuleCounter"
+)
+| summarize
+    Records = count(),
+    LastReported = max(TimeGenerated)
+    by Resource, Category
+| order by Resource asc
+
