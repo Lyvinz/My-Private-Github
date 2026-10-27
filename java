@@ -3,25 +3,20 @@ AzureDiagnostics
 | where TimeGenerated > ago(24h)
 | where Category == "NetworkSecurityGroupRuleCounter"
 | where OperationName == "NetworkSecurityGroupCounters"
+| where ruleName_s startswith "UserRule_"
 | summarize
-    HitCount = sum(matchedConnections_d),
+    RulesReporting = dcount(ruleName_s),
+    TotalHits = sum(matchedConnections_d),
     LastRecorded = max(TimeGenerated)
-    by NSG = Resource, Rule = ruleName_s,
-       Direction = direction_s, Action = type_s
-| order by NSG asc, Rule asc
+    by NSG = Resource
+| order by NSG asc
+
 
 
     
-AzureDiagnostics
-| where TimeGenerated > ago(24h)
-| where Category == "NetworkSecurityGroupRuleCounter"
-| where OperationName == "NetworkSecurityGroupCounters"
-| where ruleName_s startswith "UserRule_"
-| summarize
-    HitCount = sum(matchedConnections_d),
-    LastRecorded = max(TimeGenerated)
-    by NSG = Resource,
-       Rule = ruleName_s,
-       Direction = direction_s,
-       Action = type_s
-| order by NSG asc, Rule asc
+Resources
+| where type =~ "microsoft.network/networksecuritygroups"
+| mv-expand rule = properties.securityRules
+| summarize ConfiguredRules = count()
+    by NSG = name, ResourceGroup = resourceGroup
+| order by NSG asc
