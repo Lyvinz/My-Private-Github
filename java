@@ -1,22 +1,21 @@
 
+Resources
+| where type =~ "microsoft.network/networksecuritygroups"
+| where name =~ "z-nsg-dataeng_main-dev-cac-network"
+| mv-expand rule = properties.securityRules
+| project NSG = name,
+          RuleName = tostring(rule.name),
+          Priority = toint(rule.properties.priority)
+| order by Priority asc
+
+
+    
 AzureDiagnostics
 | where TimeGenerated > ago(24h)
 | where Category == "NetworkSecurityGroupRuleCounter"
 | where OperationName == "NetworkSecurityGroupCounters"
+| where Resource =~ "Z-NSG-DATAENG_MAIN-DEV-CAC-NETWORK"
 | where ruleName_s startswith "UserRule_"
-| summarize
-    RulesReporting = dcount(ruleName_s),
-    TotalHits = sum(matchedConnections_d),
-    LastRecorded = max(TimeGenerated)
-    by NSG = Resource
-| order by NSG asc
-
-
-
-    
-Resources
-| where type =~ "microsoft.network/networksecuritygroups"
-| mv-expand rule = properties.securityRules
-| summarize ConfiguredRules = count()
-    by NSG = name, ResourceGroup = resourceGroup
-| order by NSG asc
+| summarize HitCount = sum(matchedConnections_d)
+    by RuleName = ruleName_s
+| order by RuleName asc
