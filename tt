@@ -137,3 +137,18 @@ AzureDiagnostics
     by Resource, Category
 | order by Resource asc
 
+AzureDiagnostics
+| where TimeGenerated >= ago(90d)
+| where Category in (
+    "NetworkSecurityGroupEvent",
+    "NetworkSecurityGroupRuleCounter"
+)
+| summarize
+    Records = count(),
+    LastReported = max(TimeGenerated),
+    Categories = make_set(Category)
+    by _ResourceId
+| extend NSG = tostring(split(_ResourceId, "/")[-1])
+| project NSG, _ResourceId, Records,
+          LastReported, Categories
+| order by NSG asc
