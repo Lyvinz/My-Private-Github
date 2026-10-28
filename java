@@ -73,3 +73,15 @@ AzureDiagnostics
     FirstSeen = min(TimeGenerated),
     LastSeen = max(TimeGenerated)
     by Resource, _ResourceId
+
+
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where tolower(_ResourceId) contains "z-nsg-api_mgmt_subnet-dev-cac-network"
+| summarize
+    Records = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by Category, OperationName
+| order by Records desc
