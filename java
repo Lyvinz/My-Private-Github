@@ -95,3 +95,18 @@ AzureDiagnostics
     FirstSeen = min(TimeGenerated),
     LastSeen = max(TimeGenerated)
     by Category, OperationName
+
+
+    AzureDiagnostics
+| where TimeGenerated > ago(30d)
+| where ResourceProvider =~ "MICROSOFT.NETWORK"
+| where _ResourceId has_any (
+    "z-nsg-dataeng_main-dev-cae-network",
+    "z-nsg-ingress_appgw-dev-cac-network"
+)
+| summarize
+    Records = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by Resource, Category
+| order by Resource asc, Category asc
