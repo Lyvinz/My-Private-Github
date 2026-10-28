@@ -1,0 +1,52 @@
+## NSG Rule Hit Counter Investigation — Findings and Recommendations
+
+### Objective
+Investigate discrepancies between configured Azure Network Security Group (NSG) rules and rule-hit-counter records available through Log Analytics, assess the existing monitoring approach, and identify potential improvements.
+
+### Investigation Summary
+The investigation identified 24 NSGs in the CF FCIB NON-PROD Data App subscription using Azure Resource Graph.
+
+Configured custom rules were compared against `NetworkSecurityGroupRuleCounter` records in the `AzureDiagnostics` table.
+
+**Results:**
+- 246 configured custom-rule entries identified.
+- 91 entries matched available counter records.
+- 155 entries had no matching counter records.
+- 10 NSGs had observed counter records.
+- 14 NSGs had no observed counter records.
+
+These findings are limited to the queried `z-log-dat-shared-cac` workspace and its approximately 30-day available retention period.
+
+### Technical Findings
+The existing KQL approach successfully retrieves NSG rule-counter records and supports comparisons against configured rules.
+
+However, missing counter records cannot automatically be interpreted as zero traffic or unused security rules.
+
+Potential contributing factors include:
+- NSGs or individual rules receiving no applicable traffic.
+- Counter-generation and reporting behavior.
+- Diagnostic data being routed to different monitoring destinations.
+- Missing, interrupted, or expired telemetry.
+
+Selected NSGs were confirmed to have diagnostic settings enabled despite having no observed records in the queried workspace. The precise cause remains unconfirmed.
+
+### Monitoring Assessment
+Azure NSG rule-counter diagnostics remain relevant for observing reported rule matches.
+
+For broader traffic visibility, Azure Virtual Network flow logs and Traffic Analytics should be evaluated. These can provide additional information about network traffic and help validate activity independently of rule-counter records.
+
+Virtual Network flow logs should be considered a complementary monitoring approach rather than an assumed replacement for exact per-rule hit counts.
+
+### Recommendations
+1. Retain the existing Resource Graph and Log Analytics comparison as the baseline inventory and counter-visibility report.
+2. Verify that all required NSG diagnostic destinations are included in reporting, including any separate security-monitoring workspaces.
+3. Distinguish between zero recorded matches and missing counter records when reporting rule usage.
+4. Evaluate Virtual Network flow logs and Traffic Analytics for additional traffic visibility, subject to security approval, cost, and retention requirements.
+5. Perform targeted root-cause investigation only for NSGs where traffic activity and correct diagnostic routing can be independently established.
+
+### Conclusion
+The investigation confirmed a measurable discrepancy between configured NSG rules and available rule-counter telemetry.
+
+The current KQL approach retrieves valid counter data but does not establish complete rule-usage visibility across all configured NSGs.
+
+The exact root cause of missing counter records has not been determined. Further investigation should focus on validating traffic activity, diagnostic destinations, and reporting behavior for selected NSGs.
