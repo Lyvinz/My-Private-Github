@@ -47,3 +47,16 @@ AzureDiagnostics
 =COUNTIF(G2:G247,"NO COUNTER DATA")
 =COUNTIFS(G2:G247,"COUNTER PRESENT",H2:H247,">0")
 =COUNTIFS(G2:G247,"COUNTER PRESENT",H2:H247,0)
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where OperationName == "NetworkSecurityGroupCounters"
+| where Resource =~ "Z-NSG-API_MGMT_SUBNET-DEV-CAC-NETWORK"
+| summarize
+    Records = count(),
+    TotalHits = sum(matchedConnections_d),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by ruleName_s
+| order by ruleName_s asc
