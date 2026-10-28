@@ -27,3 +27,16 @@ AzureDiagnostics
     _ResourceId
 | order by TimeGenerated desc
 | take 30
+
+
+
+        
+AzureDiagnostics
+| where TimeGenerated >= ago(30d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| summarize
+    CounterRecords = count(),
+    RulesObserved = dcount(ruleName_s),
+    TotalHits = sum(matchedConnections_d)
+    by NSG = Resource
+| order by NSG asc
