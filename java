@@ -60,3 +60,16 @@ AzureDiagnostics
     LastSeen = max(TimeGenerated)
     by ruleName_s
 | order by ruleName_s asc
+
+
+AzureDiagnostics
+| where TimeGenerated > ago(90d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where OperationName == "NetworkSecurityGroupCounters"
+| where Resource contains "API_MGMT"
+   or _ResourceId contains "api_mgmt"
+| summarize
+    Records = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by Resource, _ResourceId
