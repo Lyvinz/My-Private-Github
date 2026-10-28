@@ -26,3 +26,14 @@ AzureDiagnostics
     Records = count()
     by Resource
 | order by LastSeen asc
+
+
+Resources
+| where type =~ "microsoft.network/networksecuritygroups"
+| project
+    NSGName = name,
+    ResourceGroup = resourceGroup,
+    Region = location,
+    SubscriptionId = subscriptionId,
+    ResourceId = id
+| order by NSGName asc
