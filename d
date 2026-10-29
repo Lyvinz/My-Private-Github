@@ -1,42 +1,32 @@
-
 AzureDiagnostics
 | where TimeGenerated >= ago(30d)
 | where Category == "NetworkSecurityGroupRuleCounter"
-| where Resource =~ "z-nsg-ingress_appgw-dev-cac-network"
-| summarize
-    CounterRecords = count(),
-    TotalHits = sum(matchedConnections_d),
-    FirstSeen = min(TimeGenerated),
-    LastSeen = max(TimeGenerated)
-    by ruleName_s
-| order by ruleName_s asc
-
-
-
-      
-AzureDiagnostics
-| where TimeGenerated >= ago(1d)
-| where Category == "NetworkSecurityGroupRuleCounter"
-| where Resource =~ "z-nsg-ingress_appgw-dev-cac-network"
-| where ruleName_s startswith "UserRule_"
 | project
     TimeGenerated,
-    ruleName_s,
-    matchedConnections_d,
-    macAddress_s,
-    _ResourceId
-| order by TimeGenerated desc
-| take 30
+    ResourceId = tolower(_ResourceId),
+    RuleName = ruleName_s,
+    MatchedConnections = matchedConnections_d
+| take 20
 
 
-
-        
-AzureDiagnostics
+        AzureDiagnostics
 | where TimeGenerated >= ago(30d)
 | where Category == "NetworkSecurityGroupRuleCounter"
+| extend
+    NSGId = tolower(trim(" ", tostring(_ResourceId))),
+    RuleName = tolower(trim(" ", tostring(ruleName_s)))
 | summarize
     CounterRecords = count(),
-    RulesObserved = dcount(ruleName_s),
-    TotalHits = sum(matchedConnections_d)
-    by NSG = Resource
-| order by NSG asc
+    ReportedMatches = sum(matchedConnections_d)
+    by NSGId, RuleName
+| order by CounterRecords desc
+
+
+
+        AzureDiagnostics
+| where TimeGenerated >= ago(30d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where ruleName_s == "YOUR_RULE_NAME"
+| project TimeGenerated, matchedConnections_d
+| order by TimeGenerated asc
+| take 30
