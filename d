@@ -1,9 +1,13 @@
 AzureDiagnostics
 | where TimeGenerated >= ago(30d)
 | where Category == "NetworkSecurityGroupRuleCounter"
-| where _ResourceId has "z-nsg-api_mgmt_subnet-dev-cac-network"
+| extend NSG = extract(
+    @"/networkSecurityGroups/([^/]+)",
+    1,
+    _ResourceId
+)
 | summarize
     CounterRecords = count(),
-    PositiveRecords = countif(matchedConnections_d > 0),
-    LastRecord = max(TimeGenerated)
-    by _ResourceId
+    PositiveRecords = countif(matchedConnections_d > 0)
+    by NSG
+| order by NSG asc
