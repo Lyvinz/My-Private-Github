@@ -34,3 +34,5 @@ AzureDiagnostics
     ZeroRecords = countif(matchedConnections_d == 0),
     PositiveRecords = countif(matchedConnections_d > 0)
     by ruleName_s
+
+    =LOWER(TRIM(A2))&"|"&LOWER(TRIM(SUBSTITUTE(C2,"UserRule_","")))
