@@ -10,3 +10,14 @@ AzureDiagnostics
     PositiveRecords = countif(matchedConnections_d > 0),
     LastSeen = max(TimeGenerated)
     by ruleName_s
+AzureDiagnostics
+| where TimeGenerated >= ago(30d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where _ResourceId has "z-nsg-dataeng_main-dev-cac-network"
+| where ruleName_s contains "330-inbound"
+| summarize
+    CounterRecords = count(),
+    ZeroRecords = countif(matchedConnections_d == 0),
+    PositiveRecords = countif(matchedConnections_d > 0),
+    LastSeen = max(TimeGenerated)
+    by ruleName_s
