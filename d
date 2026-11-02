@@ -57,3 +57,19 @@ AzureDiagnostics
     "ZERO MATCHES"
 )
 | order by TotalReportedMatches desc
+
+
+        AzureDiagnostics
+| where TimeGenerated >= ago(30d)
+| where Category == "NetworkSecurityGroupRuleCounter"
+| where ruleName_s startswith "UserRule_"
+| summarize
+    PositiveRecords = countif(matchedConnections_d > 0),
+    TotalReportedMatches = sum(matchedConnections_d)
+    by _ResourceId, ruleName_s
+| extend HitStatus = iff(
+    PositiveRecords > 0,
+    "POSITIVE MATCHES",
+    "ZERO MATCHES"
+)
+| summarize RuleCount = count() by HitStatus
